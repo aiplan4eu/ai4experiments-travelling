@@ -1,4 +1,5 @@
 from functools import partial
+import re
 
 import justpy as jp
 
@@ -11,30 +12,41 @@ TITLE_DIV_STYLE = "grid-template-columns: auto auto auto; margin-top: 15px;" + L
 
 TITLE_TEXT_DIV_STYLE = "font-size: 80px; text-align: center; text-weight: bold;"
 
-DESCRIPTION_STYLE = "margin-top: 15px; font-size: 20px;" + LEFT_MARGIN + RIGHT_MARGIN
+DESCRIPTION_STYLE = "margin-top: 15px; font-size: 16px;" + LEFT_MARGIN + RIGHT_MARGIN
 DESCRIPTION_TEXT = """
-Travelling demo: this demo allows you to create and navigate a map.
-Some text to the left of the buttons take a single number (like Add Locations, Remove Locations, Set Start and Set Destination).
-The other texts take 2 numbers separated by a comma.
-Their usage should be pretty trivial.
-You can also press randomize to get a random graph with the given number of location and the given number of edges
+Travelling demo: this demo allows you to create and navigate a map. The text to the left of the buttons specifies the precise behavior of the button itself:
+ * Add Locations(N): adds N locations to the map, in numerical order.
+ * Remove Locations(N): removes the last N locations from the map; if the start/destination is one of those it will be randomly reassigned.
+ * Add Connection(N, M): adds the connection between the L_N and L_M.
+ * Remove Connection(N, M): removes the connection between L_N and L_M.
+ * Set Start(N): sets L_N as the starting location.
+ * Set Destination(N): sets L_N as the destination.
+ * Randomize Graph(N, M): creates a new map with N locations, M random connections, a random Start and a random Destination.
+ * RESET: restores the map to it's initial configuration.
+ * NAVIGATE: prints a plan to go from the starting location to the destination; following the given map.
 """
 SINGLE_DESCRIPTION_STYLE = LEFT_MARGIN + RIGHT_MARGIN
 
 
 MAIN_BODY_DIV_CLASS = "grid justify-between grid-cols-3 gap-7"
+MAIN_BODY_DIV_STYLE = "grid-template-columns: max-content minmax(200px, 33%) 0.9fr; column-gap: 15px; margin-top: 15px;" + LEFT_MARGIN + RIGHT_MARGIN
 # MAIN_BODY_DIV_STYLE = "grid-template-columns: minmax(max-content, 25%) minmax(max-content, 25%) 10px minmax(max-content, 33%); width: 100vw; margin-top: 15px;" + LEFT_MARGIN + RIGHT_MARGIN
-MAIN_BODY_DIV_STYLE = "grid-template-columns: max-content minmax(0, 33%) auto; column-gap: 15px; margin-top: 15px;" + LEFT_MARGIN + RIGHT_MARGIN
 
 ACTIONS_DIV_CLASS = "grid"
 # Setting height to 0 it'sa trick to solve the problem of the goal div changing size
 ACTIONS_DIV_STYLE = f"grid-template-columns: auto auto; font-size: 30px; font-weight: semibold; height: 0px;"
 
-SINGLE_ACTION_P_CLASS = ""
-SINGLE_ACTION_P_STYLE = "font-weight: normal; font-size: 20px; margin-top: 15px;"
+TEXT_WIDTH = 230 # px
+COL_GAP = 4 #px
+TEXT_INPUT_P_STYLE_COMMON = "font-weight: normal; font-size: 20px; margin-top: 15px; border: 0.9px solid #000; background-color: #e1eff7; padding: 5px; margin-bottom: 17px; width: "
+TEXT_INPUT_P_CLASS = ""
+TEXT_INPUT_P_STYLE = f"{TEXT_INPUT_P_STYLE_COMMON}{TEXT_WIDTH}px;"
+
+DOUBLE_TEXT_INPUT_P_CLASS = ""
+DOUBLE_TEXT_INPUT_P_STYLE = f"{TEXT_INPUT_P_STYLE_COMMON}{int((TEXT_WIDTH-COL_GAP)/2)}px;"
 
 ADD_BUTTON_CLASS = "bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded m-2"
-ADD_BUTTON_STYLE = "font-weight: semibold; font-size: 20px; width: 250px;"
+ADD_BUTTON_STYLE = f"font-weight: semibold; font-size: 20px; width: {TEXT_WIDTH}px; margin-top: 5px;"
 
 GOALS_DIV_CLASS = ""
 GOALS_DIV_STYLE = "font-size: 30px; font-weight: semibold;"
@@ -44,7 +56,7 @@ GOALS_CONTAINER_DIV_CLASS = ""
 GOALS_CONTAINER_DIV_STYLE = ""
 
 CLEAR_SOLVE_BUTTONS_DIV_CLASS = "flex grid-cols-2"
-CLEAR_SOLVE_BUTTONS_DIV_STYLE = ""
+CLEAR_SOLVE_BUTTONS_DIV_STYLE = f"column-gap: {COL_GAP}px;"
 
 CLEAR_SOLVE_BUTTONS_CLASS = ADD_BUTTON_CLASS
 CLEAR_SOLVE_BUTTONS_STYLE = "font-weight: semibold; font-size: 20px;"
@@ -53,10 +65,7 @@ PLAN_DIV_CLASS = ""
 PLAN_DIV_STYLE = f"font-size: 30px; font-weight: semibold;"
 
 PLAN_PART_P_CLASS = ""
-PLAN_PART_P_STYLE = f"font-weight: normal; font-size: 20px;"
-
-CLEAR_PLAN_BUTTON_CLASS = ADD_BUTTON_CLASS
-CLEAR_PLAN_BUTTON_STYLE = "font-weight: semibold; font-size: 20px;"
+PLAN_PART_P_STYLE = f"font-weight: normal; font-size: 18px;"
 
 
 def main_page(gui: Gui):
@@ -81,19 +90,18 @@ def main_page(gui: Gui):
     )
     title_text_div = jp.Div(
         a=title_div,
-        text="TSB-SPACE",
+        text="TRAVELLING",
         style=TITLE_TEXT_DIV_STYLE,
     )
-    trasys_logo_div = jp.Div(
+    unified_planning_logo_div = jp.Div(
         a=title_div,
-        # text="TRASYS LOGO",
         style="height: 160px;",
     )
-    trasys = jp.Img(
-        src="/static/logos/trasys.png",
-        a=trasys_logo_div,
+    unified_planning = jp.Img(
+        src="/static/logos/unified_planning_logo.png",
+        a=unified_planning_logo_div,
         classes="w3-image",
-        # style="height: 10px; length: 10px;"
+        style="max-width: 100%; height: 160px;"
     )
 
     description_div = jp.Div(
@@ -127,12 +135,12 @@ def main_page(gui: Gui):
     )
 
     # Add Locations
-    ADD_LOCATIONS_TEXT_PLACEHOLDER = "_"
+    ADD_LOCATIONS_TEXT_PLACEHOLDER = ""
     add_locations_text = jp.Input(
         a=actions_div,
         placeholder= ADD_LOCATIONS_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=TEXT_INPUT_P_CLASS,
+        style=TEXT_INPUT_P_STYLE,
     )
     add_locations_button = jp.Input(
         a=actions_div,
@@ -157,12 +165,12 @@ def main_page(gui: Gui):
     add_locations_button.on('click', partial(add_locations_button_click, add_locations_text, gui))
 
     # Remove Locations
-    REMOVE_LOCATIONS_TEXT_PLACEHOLDER = "_"
+    REMOVE_LOCATIONS_TEXT_PLACEHOLDER = ""
     remove_locations_text = jp.Input(
         a=actions_div,
         placeholder= REMOVE_LOCATIONS_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=TEXT_INPUT_P_CLASS,
+        style=TEXT_INPUT_P_STYLE,
     )
     remove_locations_button = jp.Input(
         a=actions_div,
@@ -192,12 +200,23 @@ def main_page(gui: Gui):
     remove_locations_button.on('click', partial(remove_locations_button_click, remove_locations_text, gui))
 
     # Add Connection
-    ADD_CONNECTION_TEXT_PLACEHOLDER = "_"
-    add_connection_text = jp.Input(
+    ADD_CONNECTION_TEXT_PLACEHOLDER = ""
+    add_connection_text_div = jp.Div(
         a=actions_div,
+        classes=CLEAR_SOLVE_BUTTONS_DIV_CLASS, # TODO change
+        style=CLEAR_SOLVE_BUTTONS_DIV_STYLE,
+    )
+    add_connection_text_1 = jp.Input(
+        a=add_connection_text_div,
         placeholder= ADD_CONNECTION_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=DOUBLE_TEXT_INPUT_P_CLASS,
+        style=DOUBLE_TEXT_INPUT_P_STYLE,
+    )
+    add_connection_text_2 = jp.Input(
+        a=add_connection_text_div,
+        placeholder= ADD_CONNECTION_TEXT_PLACEHOLDER,
+        classes=DOUBLE_TEXT_INPUT_P_CLASS,
+        style=DOUBLE_TEXT_INPUT_P_STYLE,
     )
     add_connection_button = jp.Input(
         a=actions_div,
@@ -206,53 +225,61 @@ def main_page(gui: Gui):
         classes=ADD_BUTTON_CLASS,
         style=ADD_BUTTON_STYLE,
     )
-    def add_connection_button_click(add_connection_text: jp.Input, gui: Gui, component, msg):
-        text = add_connection_text.value
-        gui.logger.info("Clicked add_connection: " + text + f"with mode: {gui.mode}")
+    def add_connection_button_click(add_connection_text_1: jp.Input, add_connection_text_2: jp.Input, gui: Gui, component, msg):
+        text_1, text_2 = add_connection_text_1.value, add_connection_text_2.value
+        gui.logger.info("Clicked add_connection: " + text_1 + text_2 + f"with mode: {gui.mode}")
+        graph = gui.graph
+        defined_locations = len(graph)
         try:
-            graph = gui.graph
-            defined_locations = len(graph)
-            value_1, value_2 = map(int, text.split(",", maxsplit=1))
+            value_1 = int(text_1)
             if value_1 > 0:
                 if value_1 > defined_locations:
-                    add_connection_text.value = f"Error: first value > {defined_locations}"
+                    add_connection_text_1.value = f"Error: > {defined_locations}"
                     return
             else:
-                add_connection_text.value = "Error: first number < 0"
+                add_connection_text_1.value = "Error: < 0"
                 return
-
-            if value_1 > 0:
-                if value_1 > defined_locations:
-                    add_connection_text.value = f"Error: first value > {defined_locations}"
-                    return
-            else:
-                add_connection_text.value = "Error: first value < 0"
-                return
-
+        except ValueError:
+            add_connection_text_1.value = "Error: NAN"
+            return
+        try:
+            value_2 = int(text_2)
             if value_2 > 0:
                 if value_2 > defined_locations:
-                    add_connection_text.value = f"Error: second value > {defined_locations}"
+                    add_connection_text_2.value = f"Error: > {defined_locations}"
                     return
             else:
-                add_connection_text.value = "Error: second value < 0"
+                add_connection_text_2.value = "Error: < 0"
                 return
-
-            if gui.mode == Mode.GENERATING_PROBLEM:
-                gui.graph.add_edge(f"L_{value_1}", f"L_{value_2}")
-            gui.display_graph()
-            add_connection_text.value = ADD_CONNECTION_TEXT_PLACEHOLDER
-
         except ValueError:
-            add_connection_text.value = "Error: specify 2 comma separated numbers"
-    add_connection_button.on('click', partial(add_connection_button_click, add_connection_text, gui))
+            add_connection_text_2.value = "Error: NAN"
+            return
+
+        if gui.mode == Mode.GENERATING_PROBLEM:
+            gui.graph.add_edge(f"L_{value_1}", f"L_{value_2}")
+            gui.display_graph()
+            add_connection_text_1.value = ADD_CONNECTION_TEXT_PLACEHOLDER
+            add_connection_text_2.value = ADD_CONNECTION_TEXT_PLACEHOLDER
+    add_connection_button.on('click', partial(add_connection_button_click, add_connection_text_1, add_connection_text_2, gui))
 
     # Remove Connection
-    REMOVE_CONNECTION_TEXT_PLACEHOLDER = "_"
-    remove_connection_text = jp.Input(
+    REMOVE_CONNECTION_TEXT_PLACEHOLDER = ""
+    remove_connection_text_div = jp.Div(
         a=actions_div,
+        classes=CLEAR_SOLVE_BUTTONS_DIV_CLASS, # TODO change
+        style=CLEAR_SOLVE_BUTTONS_DIV_STYLE,
+    )
+    remove_connection_text_1 = jp.Input(
+        a=remove_connection_text_div,
         placeholder= REMOVE_CONNECTION_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=DOUBLE_TEXT_INPUT_P_CLASS,
+        style=DOUBLE_TEXT_INPUT_P_STYLE,
+    )
+    remove_connection_text_2 = jp.Input(
+        a=remove_connection_text_div,
+        placeholder= REMOVE_CONNECTION_TEXT_PLACEHOLDER,
+        classes=DOUBLE_TEXT_INPUT_P_CLASS,
+        style=DOUBLE_TEXT_INPUT_P_STYLE,
     )
     remove_connection_button = jp.Input(
         a=actions_div,
@@ -261,57 +288,50 @@ def main_page(gui: Gui):
         classes=ADD_BUTTON_CLASS,
         style=ADD_BUTTON_STYLE,
     )
-    def remove_connection_button_click(remove_connection_text: jp.Input, gui: Gui, component, msg):
-        text = remove_connection_text.value
-        gui.logger.info("Clicked remove_connection: " + text + f"with mode: {gui.mode}")
+    def remove_connection_button_click(remove_connection_text_1: jp.Input, remove_connection_text_2: jp.Input, gui: Gui, component, msg):
+        text_1, text_2 = remove_connection_text_1.value, remove_connection_text_2.value
+        gui.logger.info("Clicked remove_connection: " + text_1 + text_2 + f"with mode: {gui.mode}")
+        graph = gui.graph
+        defined_locations = len(graph)
         try:
-            graph = gui.graph
-            defined_locations = len(graph)
-            value_1, value_2 = map(int, text.split(",", maxsplit=1))
+            value_1 = int(text_1)
             if value_1 > 0:
                 if value_1 > defined_locations:
-                    remove_connection_text.value = f"Error: first value > {defined_locations}"
+                    remove_connection_text_1.value = f"Error: > {defined_locations}"
                     return
             else:
-                remove_connection_text.value = "Error: first number < 0"
+                remove_connection_text_1.value = "Error: < 0"
                 return
-
-            if value_1 > 0:
-                if value_1 > defined_locations:
-                    remove_connection_text.value = f"Error: first value > {defined_locations}"
-                    return
-            else:
-                remove_connection_text.value = "Error: first value < 0"
-                return
-
+        except ValueError:
+            remove_connection_text_1.value = "Error: NAN"
+            return
+        try:
+            value_2 = int(text_2)
             if value_2 > 0:
                 if value_2 > defined_locations:
-                    remove_connection_text.value = f"Error: second value > {defined_locations}"
+                    remove_connection_text_2.value = f"Error: > {defined_locations}"
                     return
             else:
-                remove_connection_text.value = "Error: second value < 0"
+                remove_connection_text_2.value = "Error: < 0"
                 return
-            try:
-                if gui.mode == Mode.GENERATING_PROBLEM:
-                    gui.graph.remove_edge(f"L_{value_1}", f"L_{value_2}")
-            except Exception as e:
-                pass
-
-            gui.display_graph()
-            remove_connection_text.value = REMOVE_CONNECTION_TEXT_PLACEHOLDER
-
         except ValueError:
-            remove_connection_text.value = "Error: specify 2 comma separated numbers"
-    remove_connection_button.on('click', partial(remove_connection_button_click, remove_connection_text, gui))
+            remove_connection_text_2.value = "Error: NAN"
+            return
 
+        if gui.mode == Mode.GENERATING_PROBLEM:
+            gui.graph.remove_edge(f"L_{value_1}", f"L_{value_2}")
+            gui.display_graph()
+            remove_connection_text_1.value = REMOVE_CONNECTION_TEXT_PLACEHOLDER
+            remove_connection_text_2.value = REMOVE_CONNECTION_TEXT_PLACEHOLDER
+    remove_connection_button.on('click', partial(remove_connection_button_click, remove_connection_text_1, remove_connection_text_2, gui))
 
     # Set Start
-    SET_START_TEXT_PLACEHOLDER = "_"
+    SET_START_TEXT_PLACEHOLDER = ""
     set_start_text = jp.Input(
         a=actions_div,
         placeholder=SET_START_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=TEXT_INPUT_P_CLASS,
+        style=TEXT_INPUT_P_STYLE,
     )
     set_start_button = jp.Input(
         a=actions_div,
@@ -344,12 +364,12 @@ def main_page(gui: Gui):
     set_start_button.on('click', partial(set_start_button_click, set_start_text, gui))
 
     # Set Destination
-    SET_DESTINATION_TEXT_PLACEHOLDER = "_"
+    SET_DESTINATION_TEXT_PLACEHOLDER = ""
     set_destination_text = jp.Input(
         a=actions_div,
         placeholder=SET_DESTINATION_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=TEXT_INPUT_P_CLASS,
+        style=TEXT_INPUT_P_STYLE,
     )
     set_destination_button = jp.Input(
         a=actions_div,
@@ -382,12 +402,23 @@ def main_page(gui: Gui):
     set_destination_button.on('click', partial(set_destination_button_click, set_destination_text, gui))
 
     # Randomize Graph
-    RANDOMIZE_TEXT_PLACEHOLDER = "_"
-    randomize_text = jp.Input(
+    RANDOMIZE_TEXT_PLACEHOLDER = ""
+    randomize_text_div = jp.Div(
         a=actions_div,
+        classes=CLEAR_SOLVE_BUTTONS_DIV_CLASS, # TODO change
+        style=CLEAR_SOLVE_BUTTONS_DIV_STYLE,
+    )
+    randomize_text_1 = jp.Input(
+        a=randomize_text_div,
         placeholder= RANDOMIZE_TEXT_PLACEHOLDER,
-        classes=SINGLE_ACTION_P_CLASS,
-        style=SINGLE_ACTION_P_STYLE,
+        classes=DOUBLE_TEXT_INPUT_P_CLASS,
+        style=DOUBLE_TEXT_INPUT_P_STYLE,
+    )
+    randomize_text_2 = jp.Input(
+        a=randomize_text_div,
+        placeholder= RANDOMIZE_TEXT_PLACEHOLDER,
+        classes=DOUBLE_TEXT_INPUT_P_CLASS,
+        style=DOUBLE_TEXT_INPUT_P_STYLE,
     )
     randomize_button = jp.Input(
         a=actions_div,
@@ -396,36 +427,48 @@ def main_page(gui: Gui):
         classes=ADD_BUTTON_CLASS,
         style=ADD_BUTTON_STYLE,
     )
-    def randomize_button_click(randomize_text: jp.Input, gui: Gui, component, msg):
-        text = randomize_text.value
-        gui.logger.info("Clicked randomize: " + text + f"with mode: {gui.mode}")
+    def randomize_button_click(randomize_text_1: jp.Input, randomize_text_2: jp.Input, gui: Gui, component, msg):
+        text_1, text_2 = randomize_text_1.value, randomize_text_2.value
+        gui.logger.info("Clicked randomize: " + text_1 + text_2 + f"with mode: {gui.mode}")
         try:
-            graph = gui.graph
-            defined_locations = len(graph)
-            value_1, value_2 = map(int, text.split(",", maxsplit=1))
+            value_1 = int(text_1)
             if value_1 <= 0:
-                randomize_text.value = "Error: first number <= 0"
+                randomize_text_1.value = "Error: <= 0"
                 return
-
-            if value_2 <= 0:
-                randomize_text.value = "Error: second value <= 0"
-                return
-            try:
-                if gui.mode == Mode.GENERATING_PROBLEM:
-                    gui.randomize_graph_click(value_1, value_2)
-            except Exception as e:
-                pass
-
-            gui.display_graph()
-            randomize_text.value = RANDOMIZE_TEXT_PLACEHOLDER
-
         except ValueError:
-            randomize_text.value = "Error: specify 2 comma separated numbers"
-    randomize_button.on('click', partial(randomize_button_click, randomize_text, gui))
+            randomize_text_1.value = "Error: NAN"
+            return
+        try:
+            value_2 = int(text_2)
+            if value_2 <= 0:
+                randomize_text_2.value = "Error: <= 0"
+                return
+        except ValueError:
+            randomize_text_2.value = "Error: NAN"
+            return
+        gui.randomize_graph_click(value_1, value_2)
+    randomize_button.on('click', partial(randomize_button_click, randomize_text_1, randomize_text_2, gui))
+
+    reset = jp.Input(
+        a=actions_div,
+        value="RESET",
+        type="submit",
+        classes=ADD_BUTTON_CLASS,
+        style=ADD_BUTTON_STYLE,
+    )
+    reset.on('click', gui.clear_activities_click)
+    solve = jp.Input(
+        a=actions_div,
+        value="NAVIGATE",
+        type="submit",
+        classes=ADD_BUTTON_CLASS,
+        style=ADD_BUTTON_STYLE,
+    )
+    solve.on('click', gui.generate_problem_click)
 
     goals_div = jp.Div(
         a=main_body_div,
-        text="GOALS:",
+        text="GRAPH:",
         classes=GOALS_DIV_CLASS,
         style=GOALS_DIV_STYLE,
     )
@@ -439,29 +482,6 @@ def main_page(gui: Gui):
 
     gui.display_graph()
 
-    clear_solve_buttons_div = jp.Div(
-        a=goals_div,
-        classes=CLEAR_SOLVE_BUTTONS_DIV_CLASS,
-        style=CLEAR_SOLVE_BUTTONS_DIV_STYLE,
-    )
-
-    clear = jp.Input(
-        a=clear_solve_buttons_div,
-        value="CLEAR",
-        type="submit",
-        classes=CLEAR_SOLVE_BUTTONS_CLASS,
-        style=CLEAR_SOLVE_BUTTONS_STYLE,
-    )
-    clear.on('click', gui.clear_activities_click)
-    solve = jp.Input(
-        a=clear_solve_buttons_div,
-        value="SOLVE",
-        type="submit",
-        classes=CLEAR_SOLVE_BUTTONS_CLASS,
-        style=CLEAR_SOLVE_BUTTONS_STYLE,
-    )
-    solve.on('click', gui.generate_problem_click)
-
     plan_div = jp.Div(
         a=main_body_div,
         text="PLAN:",
@@ -471,28 +491,5 @@ def main_page(gui: Gui):
     gui.plan_div = plan_div
 
     gui.update_planning_execution()
-
-    # if gui.plan is None:
-    #     single_p = jp.P(
-    #         a=plan_div,
-    #         text="No plan found yet.",
-    #         classes=PLAN_PART_P_CLASS,
-    #         style=PLAN_PART_P_STYLE,
-    #     )
-    # else:
-    #     for plan_activity in gui.plan:
-    #         text = activity_str(plan_activity)
-    #         single_p = jp.P(
-    #             a=plan_div,
-    #             text=text,
-    #             classes=PLAN_PART_P_CLASS,
-    #             style=PLAN_PART_P_STYLE,
-    #         )
-    #     single_p = jp.P(
-    #         a=plan_div,
-    #         text=f"It reaches {gui.reached_goals} goals.",
-    #         classes=PLAN_PART_P_CLASS,
-    #         style=PLAN_PART_P_STYLE,
-    #     )
 
     return wp

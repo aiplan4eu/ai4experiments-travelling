@@ -1,8 +1,5 @@
-import os
-import requests
-import asyncio
+import networkx as nx
 import logging
-import xml.etree.ElementTree as ET
 from typing import Tuple
 from up_graphene_engine.engine import  GrapheneEngine
 from gui import Gui
@@ -19,6 +16,10 @@ get_environment().credits_stream = None
 
 def planning(engine: GrapheneEngine, gui: Gui, reload_page):
     logging.info("Generating planning problem...")
+
+    # # Normally the planner returns this, but there is a bug in the protobuf converter in the version 1.0.0
+    # if not nx.has_path(gui.graph, gui.start, gui.destination):
+    #     return None
 
     # First, we declare a "Location" type
     Location = UserType('Location')

@@ -1,7 +1,10 @@
 
 import asyncio
+import networkx as nx
+import matplotlib.pyplot as plt
 from enum import Enum, auto
 from networkx import Graph, dense_gnm_random_graph
+from random import randint
 
 import random
 import logging
@@ -22,10 +25,10 @@ BUTTON_CLASS = 'bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hov
 ACTIVITY_DIV_STYLE = "color:blue;"
 PLAN_DIV_STYLE = "color:blue;"
 
-GRAPH_IMAGE_LOCATION = "/logos/generated/graph.png"
+GRAPH_IMAGE_LOCATION = "/logos/generated/graph"
 GRAPH_IMAGE_DIMENSIONS = "height: 200px; length: 200px;"
 
-FIGSIZE = 200, 200
+FIGSIZE = 6, 6
 
 
 DIV_CLASS = "margin: auto; width: 50%;"
@@ -101,21 +104,54 @@ class Gui():
         if self.graph_image_div is None:
             return
 
-        from main_page import PLAN_PART_P_CLASS, PLAN_PART_P_STYLE
-        self.graph_image_div.delete_components()
-        texts = [f"Locations: {', '.join(self.graph.nodes)}."]
-        texts.append(f"Start: {self.start}.")
-        texts.append(f"Destination: {self.destination}.")
-        for node, nbrdict in self.graph.adjacency():
-            texts.append(f"{node} connected to: {', '.join(map(str, nbrdict.keys()))}.")
+        # from main_page import PLAN_PART_P_CLASS, PLAN_PART_P_STYLE
+        # self.graph_image_div.delete_components()
+        # texts = [f"Locations: {', '.join(self.graph.nodes)}."]
+        # texts.append(f"Start: {self.start}.")
+        # texts.append(f"Destination: {self.destination}.")
+        # for node, nbrdict in self.graph.adjacency():
+        #     texts.append(f"{node} connected to: {', '.join(map(str, nbrdict.keys()))}.")
 
-        for t in texts:
-            _ = jp.P(
-                a=self.graph_image_div,
-                text=t,
-                classes=PLAN_PART_P_CLASS,
-                style=PLAN_PART_P_STYLE,
-            )
+        # for t in texts:
+        #     _ = jp.P(
+        #         a=self.graph_image_div,
+        #         text=t,
+        #         classes=PLAN_PART_P_CLASS,
+        #         style=PLAN_PART_P_STYLE,
+        #     )
+        pos = nx.nx_agraph.graphviz_layout(self.graph, prog="twopi")
+        fig = plt.figure(figsize = FIGSIZE)
+        ax = fig.add_subplot()
+        nx.draw(self.graph, pos, with_labels=True, font_weight='bold', ax=ax)
+        image_id = randint(0, 2000)
+        img_loc = f"{GRAPH_IMAGE_LOCATION}_{image_id}.png"
+        # fig.savefig(f".{GRAPH_IMAGE_LOCATION}_{image_id}.png")
+        fig.savefig(f".{img_loc}")
+
+        self.graph_image_div.delete_components()
+
+        _ = jp.Img(
+            a=self.graph_image_div,
+            src=f"static{img_loc}",
+            style='max-width: 100%; height: auto;'
+        )
+
+        # try:
+        #     asyncio.run(self.graph_image_div.update())
+        # except RuntimeError:
+        #     self.graph_image_div.update()
+
+        # try:
+        #     asyncio.run(reload_page)
+        # except RuntimeError:
+        #     reload_page()
+
+
+
+        # try:
+        #     asyncio.run(reload_page)
+        # except:
+        #     reload_page()
 
     def reset_execution(self):
         self.mode = Mode.GENERATING_PROBLEM

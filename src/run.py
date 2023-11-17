@@ -37,9 +37,9 @@ def main():
     while True:
         # wait for the user input to start planning
         gui.start_queue.get(block=True)
-        activity_plan = planning(engine, gui, reload_page)
+        gui.plan = planning(engine, gui, reload_page)
 
-        gui.update_plan(activity_plan)
+        gui.update_planning_execution()
 
         gui.reset_execution()
         asyncio.run(reload_page())
