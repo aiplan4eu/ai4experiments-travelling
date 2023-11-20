@@ -19,8 +19,8 @@ Travelling demo: this demo allows you to create and navigate a map. The text to 
  * Remove Locations(N): removes the last N locations from the map; if the start/destination is one of those it will be randomly reassigned.
  * Add Connection(N, M): adds the connection between the L_N and L_M.
  * Remove Connection(N, M): removes the connection between L_N and L_M.
- * Set Start(N): sets L_N as the starting location.
- * Set Destination(N): sets L_N as the destination.
+ * Set Start(N): sets L_N as the starting location; the starting location is represented in GREEN.
+ * Set Destination(N): sets L_N as the destination; the destination is represented in RED.
  * Randomize Graph(N, M): creates a new map with N locations, M random connections, a random Start and a random Destination.
  * RESET: restores the map to it's initial configuration.
  * NAVIGATE: prints a plan to go from the starting location to the destination; following the given map.
@@ -29,7 +29,7 @@ SINGLE_DESCRIPTION_STYLE = LEFT_MARGIN + RIGHT_MARGIN
 
 
 MAIN_BODY_DIV_CLASS = "grid justify-between grid-cols-3 gap-7"
-MAIN_BODY_DIV_STYLE = "grid-template-columns: max-content minmax(200px, 33%) 0.9fr; column-gap: 15px; margin-top: 15px;" + LEFT_MARGIN + RIGHT_MARGIN
+MAIN_BODY_DIV_STYLE = "grid-template-columns: max-content minmax(200px, 45%) 0.9fr; column-gap: 15px; margin-top: 15px;" + LEFT_MARGIN + RIGHT_MARGIN
 # MAIN_BODY_DIV_STYLE = "grid-template-columns: minmax(max-content, 25%) minmax(max-content, 25%) 10px minmax(max-content, 33%); width: 100vw; margin-top: 15px;" + LEFT_MARGIN + RIGHT_MARGIN
 
 ACTIONS_DIV_CLASS = "grid"
@@ -257,7 +257,7 @@ def main_page(gui: Gui):
 
         if gui.mode == Mode.GENERATING_PROBLEM:
             gui.graph.add_edge(f"L_{value_1}", f"L_{value_2}")
-            gui.display_graph()
+            gui.display_graph(True)
             add_connection_text_1.value = ADD_CONNECTION_TEXT_PLACEHOLDER
             add_connection_text_2.value = ADD_CONNECTION_TEXT_PLACEHOLDER
     add_connection_button.on('click', partial(add_connection_button_click, add_connection_text_1, add_connection_text_2, gui))
@@ -320,7 +320,7 @@ def main_page(gui: Gui):
 
         if gui.mode == Mode.GENERATING_PROBLEM:
             gui.graph.remove_edge(f"L_{value_1}", f"L_{value_2}")
-            gui.display_graph()
+            gui.display_graph(True)
             remove_connection_text_1.value = REMOVE_CONNECTION_TEXT_PLACEHOLDER
             remove_connection_text_2.value = REMOVE_CONNECTION_TEXT_PLACEHOLDER
     remove_connection_button.on('click', partial(remove_connection_button_click, remove_connection_text_1, remove_connection_text_2, gui))
@@ -353,7 +353,7 @@ def main_page(gui: Gui):
                     set_start_text.value = SET_START_TEXT_PLACEHOLDER
                     if gui.mode == Mode.GENERATING_PROBLEM:
                         gui.start = f"L_{value}"
-                        gui.display_graph()
+                        gui.display_graph(True)
                 else:
                     set_start_text.value = f"Error: insert number <= {defined_locations}"
             else:
@@ -391,7 +391,7 @@ def main_page(gui: Gui):
                     set_destination_text.value = SET_DESTINATION_TEXT_PLACEHOLDER
                     if gui.mode == Mode.GENERATING_PROBLEM:
                         gui.destination = f"L_{value}"
-                        gui.display_graph()
+                        gui.display_graph(True)
                 else:
                     set_destination_text.value = f"Error: insert number <= {defined_locations}"
             else:

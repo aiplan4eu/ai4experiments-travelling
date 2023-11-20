@@ -18,27 +18,26 @@ import unified_planning as up
 from unified_planning.shortcuts import *
 
 
-DEBUG = False
+
 N_STARTING_LOCATIONS = 4
 BUTTON_CLASS = 'bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white py-2 px-4 border border-blue-500 hover:border-transparent rounded m-2'
-# BUTTON_CLASS = "m-2 bg-gray-200 border-2 border-gray-200 rounded w-64 py-2 px-4 text-gray-700 focus:outline-none focus:bg-white focus:border-purple-500"
-ACTIVITY_DIV_STYLE = "color:blue;"
-PLAN_DIV_STYLE = "color:blue;"
 
 GRAPH_IMAGE_LOCATION = "/logos/generated/graph"
-GRAPH_IMAGE_DIMENSIONS = "height: 200px; length: 200px;"
+GRAPH_IMAGE_DIMENSIONS = "height: 400px; length: 400px;"
 
-FIGSIZE = 6, 6
+FIGSIZE = 8, 8
+START_NODE_COLOR = "#02f414"
+DESTINATION_NODE_COLOR = "#fd3a00"
+NORMAL_NODE_COLOR = "#029cf4"
+PATH_COLOR = "#f5fd00"
+NODE_SIZE = 400
+NODE_LABEL_FONT_SIZE = 8
 
 
-DIV_CLASS = "margin: auto; width: 50%;"
 class Mode(Enum):
     GENERATING_PROBLEM = auto()
     OPERATING = auto()
 
-
-curr_dir = os.path.dirname(os.path.abspath(__file__))
-models_dir = os.path.join(curr_dir, 'models')
 
 class Gui():
     def __init__(self):
@@ -50,6 +49,7 @@ class Gui():
 
         self.plan = None
         self.plan_expected: bool = False
+        self.image_id = 0
 
         self.plan_div: Optional[jp.Div] = None
         self.graph_image_div: Optional[jp.Img] = None
@@ -57,8 +57,6 @@ class Gui():
         self.logger = logging.getLogger(__name__)
         logging.basicConfig(format='%(asctime)s %(message)s')
         self.logger.setLevel(logging.INFO)
-        self.total_planning_goals = -1
-        self.reached_planning_goals = -1
 
         assert N_STARTING_LOCATIONS > 1
         self.add_locations_to_graph(N_STARTING_LOCATIONS, display_graph=False)
@@ -76,7 +74,7 @@ class Gui():
         if last_defined_location is not None:
             self.graph.add_edge(last_defined_location, locations_to_add[0])
         self.graph.add_edges_from(zip(locations_to_add[:-1], locations_to_add[1:]))
-        self.display_graph()
+        self.display_graph(True)
 
     def remove_locations_from_graph(self, number_of_locations: int):
         defined_locations = len(self.graph)
@@ -87,7 +85,7 @@ class Gui():
             self.start = f"L_{random.randint(1, len(self.graph))}"
         if self.destination not in self.graph:
             self.destination = f"L_{random.randint(1, len(self.graph))}"
-        self.display_graph()
+        self.display_graph(True)
 
     def randomize_graph_click(self, n_nodes, n_edges):
         random_graph = dense_gnm_random_graph(n_nodes, n_edges)
@@ -98,11 +96,13 @@ class Gui():
         self.graph.add_edges_from(map(lambda x: (node_mapping.get(x[0]), node_mapping.get(x[1])), random_graph.edges))
         self.start = f"L_{random.randint(1, len(self.graph))}"
         self.destination = f"L_{random.randint(1, len(self.graph))}"
-        self.display_graph()
+        self.display_graph(True)
 
-    def display_graph(self):
+    def display_graph(self, reset_plan = False):
         if self.graph_image_div is None:
             return
+        if reset_plan:
+            self.plan = None
 
         # from main_page import PLAN_PART_P_CLASS, PLAN_PART_P_STYLE
         # self.graph_image_div.delete_components()
@@ -122,10 +122,16 @@ class Gui():
         pos = nx.nx_agraph.graphviz_layout(self.graph, prog="twopi")
         fig = plt.figure(figsize = FIGSIZE)
         ax = fig.add_subplot()
-        nx.draw(self.graph, pos, with_labels=True, font_weight='bold', ax=ax)
-        image_id = randint(0, 2000)
-        img_loc = f"{GRAPH_IMAGE_LOCATION}_{image_id}.png"
-        # fig.savefig(f".{GRAPH_IMAGE_LOCATION}_{image_id}.png")
+        color_map = {self.start: START_NODE_COLOR, self.destination: DESTINATION_NODE_COLOR}
+        if self.plan is not None:
+            path = set((str(ai.actual_parameters[1]) for ai in self.plan.actions[0:-1]))
+            node_colors = [color_map.get(n, NORMAL_NODE_COLOR) if n not in path else PATH_COLOR for n in self.graph ]
+        else:
+            node_colors = [color_map.get(n, NORMAL_NODE_COLOR) for n in self.graph]
+
+        nx.draw(self.graph, pos, with_labels=True, font_weight='bold', ax=ax, node_color=node_colors, font_size=NODE_LABEL_FONT_SIZE, node_size=NODE_SIZE)
+        img_loc = f"{GRAPH_IMAGE_LOCATION}_{self.image_id}.png"
+        self.image_id += 1
         fig.savefig(f".{img_loc}")
 
         self.graph_image_div.delete_components()
@@ -135,23 +141,6 @@ class Gui():
             src=f"static{img_loc}",
             style='max-width: 100%; height: auto;'
         )
-
-        # try:
-        #     asyncio.run(self.graph_image_div.update())
-        # except RuntimeError:
-        #     self.graph_image_div.update()
-
-        # try:
-        #     asyncio.run(reload_page)
-        # except RuntimeError:
-        #     reload_page()
-
-
-
-        # try:
-        #     asyncio.run(reload_page)
-        # except:
-        #     reload_page()
 
     def reset_execution(self):
         self.mode = Mode.GENERATING_PROBLEM
@@ -199,7 +188,7 @@ class Gui():
             else:
                 single_p = jp.P(
                     a=self.plan_div,
-                    text="Modify graph and press SOLVE!",
+                    text="Modify graph and press NAVIGATE!",
                     classes=PLAN_PART_P_CLASS,
                     style=PLAN_PART_P_STYLE,
                 )
@@ -207,6 +196,7 @@ class Gui():
                 asyncio.run(self.plan_div.update())
             except RuntimeError:
                 self.plan_div.update()
+            self.display_graph()
 
     def clear_activities_click(self, msg):
 
@@ -219,9 +209,8 @@ class Gui():
             self.start = "L_1"
             self.destination = f"L_{N_STARTING_LOCATIONS}"
 
-            self.plan = None
             self.plan_expected = False
-            self.display_graph()
+            self.display_graph(True)
             self.update_planning_execution()
 
     def show_gui_thread(self):
