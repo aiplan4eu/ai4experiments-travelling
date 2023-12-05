@@ -19,7 +19,6 @@ from up_graphene_engine.engine import GrapheneEngine
 
 
 from gui import Gui, Mode, reload_page
-from generate_request import generate_request_str
 from modified_planning import planning
 from threading import Thread
 
